@@ -50,11 +50,12 @@ class DaemonController
     /**
      * DaemonController constructor.
      * @param $config
+     * @param bool $demonize
      */
-    public function __construct($config)
+    public function __construct($config, $demonize = false)
     {
         $this->config = $config;
-        $this->demonize = !is_null(APP_DEM_ENV) ? APP_DEM_ENV : false;
+        $this->demonize = ($demonize) ? $demonize : false;
     }
 
     /**
