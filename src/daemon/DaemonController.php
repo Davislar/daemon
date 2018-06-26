@@ -22,7 +22,7 @@ class DaemonController
      * @var $demonize boolean
      * @default false
      */
-    public $demonize = APP_DEM_ENV;
+    public $demonize;
 
     /**
      * Main procces pid
@@ -54,6 +54,7 @@ class DaemonController
     public function __construct($config)
     {
         $this->config = $config;
+        $this->demonize = !is_null(APP_DEM_ENV) ? APP_DEM_ENV : false;
     }
 
     /**
