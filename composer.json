@@ -16,7 +16,9 @@
     "autoload": {
         "psr-4": {
             "Davislar\\": "",
-            "Davislar\\daemon\\": "src/daemon"
+            "Davislar\\daemon\\": "src/daemon",
+            "Davislar\\objects\\": "src/objects",
+            "Davislar\\console\\": "src/console"
         }
     }
 }
