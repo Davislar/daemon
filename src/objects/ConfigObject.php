@@ -7,6 +7,8 @@ use Davislar\daemon\DaemonController;
 
 class ConfigObject
 {
+    public $name = 'daemon';
+
     /**
      * Base controller
      * @var string
@@ -25,6 +27,16 @@ class ConfigObject
      * @var int
      */
     public $loop = 5;
+
+    /**
+     * @var int Memory limit for daemon, must bee less than php memory_limit
+     * @default 32M
+     */
+    public $memoryLimit = 268435456;
+
+    public $pidDir = null;
+
+    public $logDir = null;
 
 
     public function __construct(array $config)

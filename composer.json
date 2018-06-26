@@ -18,7 +18,8 @@
             "Davislar\\": "",
             "Davislar\\daemon\\": "src/daemon",
             "Davislar\\objects\\": "src/objects",
-            "Davislar\\console\\": "src/console"
+            "Davislar\\console\\": "src/console",
+            "Davislar\\tests\\": "tests"
         }
     }
 }
