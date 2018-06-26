@@ -1,0 +1,14 @@
+{
+    "name": "davislar/daemon",
+    "description": "Console daemon",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andrew Nogenko",
+            "email": "nogenkoworkmail@gmail.com"
+        }
+    ],
+    "minimum-stability": "alpha",
+    "require": {}
+}
