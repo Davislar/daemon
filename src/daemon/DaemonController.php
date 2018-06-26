@@ -1,6 +1,6 @@
 <?php
 
-namespace src;
+namespace Davislar\daemon;
 
 
 class DaemonController
