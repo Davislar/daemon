@@ -7,8 +7,8 @@ require_once __DIR__ . '/../vendor/autoload.php'; // Autoload files using
 
 use Davislar\daemon\DaemonController;
 
-$app = new DaemonController(new \Davislar\objects\ConfigObject([
-    'loop' => 20,
+$app = new \Davislar\daemon\WatcherDaemonController(new \Davislar\objects\ConfigObject([
+    'loop' => 5,
     'pidDir' => __DIR__ . '/../runtime/daemon',
     'logDir' => __DIR__ . '/../runtime/logs',
     'workers' => [

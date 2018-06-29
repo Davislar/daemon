@@ -4,8 +4,9 @@ namespace Davislar\objects;
 
 
 use Davislar\daemon\DaemonController;
+use Davislar\src\interfaces\WatcherControllerConfigInterface;
 
-class ConfigObject
+class ConfigObject implements WatcherControllerConfigInterface
 {
     public $name = 'daemon';
 
@@ -78,12 +79,14 @@ class ConfigObject
 
     /**
      * @param array $workers
+     * @return bool
      */
     public function setWorkers(array $workers)
     {
         foreach ($workers as $worker){
             $this->workers[$worker['name']] = new WorkerConfigObject($worker);
         }
+        return true;
     }
 
 

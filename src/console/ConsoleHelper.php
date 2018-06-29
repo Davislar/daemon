@@ -67,4 +67,15 @@ class ConsoleHelper
         return "\033[0m" . ($code !== '' ? "\033[" . $code . 'm' : '') . $string . "\033[0m";
     }
 
+    /**
+     * @param $code int -1|0|1
+     * @param $message string
+     * @param int $color
+     */
+    public static function consolePrint($code, $message = null, $color = ConsoleHelper::FG_GREEN)
+    {
+        $message = 'Code: ' . $code . "\n"  . self::ansiFormat($message, [$color]) . "\n";
+        self::stdout($message);
+    }
+
 }
