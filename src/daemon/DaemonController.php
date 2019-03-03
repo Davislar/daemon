@@ -1,6 +1,7 @@
 <?php
 
 namespace Davislar\daemon;
+
 use Davislar\console\ConsoleHelper;
 use Davislar\objects\ConfigObject;
 use Davislar\src\interfaces\WatcherControllerConfigInterface;
@@ -14,6 +15,12 @@ class DaemonController
 {
     const EXIT_CODE_NORMAL = 0;
     const EXIT_CODE_ERROR = 1;
+
+    const
+        EVENT_BEFORE_JOB = 'BEFORE_JOB',
+        EVENT_AFTER_JOB = 'AFTER_JOB',
+        EVENT_BEFORE_ITERATION = 'BEFORE_ITERATION',
+        EVENT_AFTER_ITERATION = 'AFTER_ITERATION';
 
 
     /**
@@ -34,7 +41,6 @@ class DaemonController
     public $firstIteration = true;
 
 
-
     static $stopFlag = false;
 
     private $stdIn;
@@ -53,8 +59,6 @@ class DaemonController
         pcntl_signal(SIGUSR1, ['Davislar\daemon\DaemonController', 'signalHandler']);
         pcntl_signal(SIGCHLD, ['Davislar\daemon\DaemonController', 'signalHandler']);
     }
-
-
 
 
     /**
@@ -84,7 +88,7 @@ class DaemonController
         if (!file_exists($this->config->pidDir)) {
             mkdir($this->config->pidDir, 0744, true);
         }
-        if (!$worker){
+        if (!$worker) {
             $daemon = $this->getProcessName($daemon);
         }
 
@@ -97,17 +101,17 @@ class DaemonController
      */
     public function getConfig()
     {
-        if (is_null($this->config)){
+        if (is_null($this->config)) {
             throw new \Exception('Config was not set', 5000);
         }
         return $this->config;
     }
 
 
-    protected function loop(){
+    protected function loop()
+    {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();
-//            \Yii::trace('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.');
             while (!self::$stopFlag) {
                 ConsoleHelper::consolePrint(0, 'Memory use: ' . memory_get_usage());
                 ConsoleHelper::consolePrint(0, 'Memory at system: ' . memory_get_usage(true));
@@ -117,8 +121,7 @@ class DaemonController
                         ' bytes allowed by memory limit', ConsoleHelper::BG_RED);
                     break;
                 }
-//                $this->trigger(self::EVENT_BEFORE_ITERATION);
-//                $this->renewConnections();
+                $this->trigger(self::EVENT_BEFORE_ITERATION);
                 $jobs = $this->defineJobs();
                 if ($jobs && !empty($jobs)) {
                     while (($job = $this->defineJobExtractor($jobs)) !== null) {
@@ -130,7 +133,7 @@ class DaemonController
                     sleep($this->config->loop);
                 }
                 pcntl_signal_dispatch();
-//                $this->trigger(self::EVENT_AFTER_ITERATION);
+                $this->trigger(self::EVENT_AFTER_ITERATION);
             }
             return self::EXIT_CODE_NORMAL;
         }
@@ -243,5 +246,26 @@ class DaemonController
                 }
                 break;
         }
+    }
+
+    /**
+     * Fetch one task from array of tasks
+     *
+     * @param Array
+     *
+     * @return mixed one task
+     */
+    protected function defineJobExtractor(&$jobs)
+    {
+        return array_shift($jobs);
+    }
+
+
+    /**
+     * @param $event
+     */
+    protected function trigger($event)
+    {
+        //:TODO: Write event listener
     }
 }
