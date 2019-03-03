@@ -10,6 +10,8 @@ use Davislar\console\ConsoleHelper;
  */
 abstract class BaseDaemonJob
 {
+    protected $pidJob;
+
     abstract public function __construct(array $config);
 
     abstract public function run();
@@ -30,4 +32,22 @@ abstract class BaseDaemonJob
             }
         }
     }
+
+    /**
+     * @return mixed
+     */
+    public function getPidJob()
+    {
+        return $this->pidJob;
+    }
+
+    /**
+     * @param mixed $pidJob
+     */
+    public function setPidJob($pidJob)
+    {
+        $this->pidJob = $pidJob;
+    }
+
+
 }

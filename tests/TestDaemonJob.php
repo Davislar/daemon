@@ -11,7 +11,7 @@ use Davislar\daemon\BaseDaemonJob;
  */
 class TestDaemonJob extends BaseDaemonJob
 {
-    protected $pidJob;
+
     protected $pidName;
 
     /**

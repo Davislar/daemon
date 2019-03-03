@@ -86,7 +86,7 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
             return true;
         }
 
-        ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' not found', ConsoleHelper::BG_RED);
+        ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' not found', ConsoleHelper::BG_GREY);
         if ($job['enabled']) {
 
             $this->startDaemonProcess($job);
@@ -98,6 +98,10 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
 
     protected function startDaemonProcess($job)
     {
+        if (!($jobClass = $this->getJobClass($job))){
+            return false;
+        }
+
         ConsoleHelper::consolePrint(0, 'Try to run daemon ' . $job['name'] . '.', ConsoleHelper::BG_GREY);
         //run daemon
         $pid = pcntl_fork();
@@ -106,8 +110,9 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
             ConsoleHelper::consolePrint(self::EXIT_CODE_ERROR, 'pcntl_fork() returned error', ConsoleHelper::BG_RED);
         } elseif ($pid === 0) {
             $pidJob = file_get_contents($this->getPidPath($job['name'], true));
-            ConsoleHelper::consolePrint(0, "Job {$job['name']} start with PID: " . $pid, ConsoleHelper::BG_GREY);
-            $this->runJob($job, $pidJob);
+            ConsoleHelper::consolePrint(0, "Job {$job['name']} start with PID: " . $pidJob, ConsoleHelper::BG_GREY);
+            $jobClass->setPidJob($pidJob);
+            $jobClass->run();
         } else {
             try {
                 if (file_put_contents($this->getPidPath($job['name'], true), $pid)) {
@@ -121,6 +126,26 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
             }
 
         }
+    }
+
+    /**
+     * @param $job
+     * @return bool
+     */
+    protected function getJobClass($job){
+        $object = new $job['class']([
+            'pidName' => $job['name']
+        ]);
+        if (!($object instanceof BaseDaemonJob)){
+            ConsoleHelper::consolePrint(5000,
+            "Class {$job['class']} must extend BaseDaemonJob class",
+                ConsoleHelper::BG_RED
+            );
+
+            return false;
+        }
+
+        return $object;
     }
 
     /**
@@ -173,19 +198,6 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
             $this->stopProcessByPID($pid, SIGTERM);
         }
 
-    }
-
-    /**
-     * @param $job
-     * @param $pidJob
-     */
-    protected function runJob($job, $pidJob)
-    {
-        $object = new $job['class']([
-            'pidJob' => $pidJob,
-            'pidName' => $job['name']
-        ]);
-        $object->run();
     }
 
     /**
