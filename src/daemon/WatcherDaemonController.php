@@ -39,11 +39,10 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
     {
         if ($this->demonize) {
             $pid = pcntl_fork();
-            ConsoleHelper::consolePrint(-1, 'Start Daemon. PID: ' . $pid, ConsoleHelper::FG_GREEN);
+            ConsoleHelper::consolePrint(-1, 'Start WatcherDaemon. PID: ' . $pid, ConsoleHelper::FG_GREEN);
             if ($pid == -1) {
                 ConsoleHelper::consolePrint(self::EXIT_CODE_ERROR, 'pcntl_fork() rise error');
             } elseif ($pid) {
-//                $this->cleanLog();
                 ConsoleHelper::consolePrint(self::EXIT_CODE_NORMAL);
             } else {
                 posix_setsid();
@@ -51,9 +50,10 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
             }
         }
         $this->changeProcessName();
-        if (!self::$stopFlag){
-            $this->loop();
-        }
+        pcntl_signal_dispatch();
+
+        $this->loop();
+
         return true;
     }
 
@@ -66,9 +66,9 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
      */
     public function runDaemon($job)
     {
-//            $this->trigger(self::EVENT_BEFORE_JOB);
+        $this->trigger(self::EVENT_BEFORE_JOB);
         $status = $this->doJob($job);
-//            $this->trigger(self::EVENT_AFTER_JOB);
+        $this->trigger(self::EVENT_AFTER_JOB);
 
         return $status;
     }
@@ -82,67 +82,109 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
      */
     protected function doJob($job)
     {
-        $pid_file = $this->getPidPath($job['name'], true);
-
-        ConsoleHelper::consolePrint(0, 'Check daemon ' . $job['name']);
-        if (file_exists($pid_file)) {
-            ConsoleHelper::consolePrint(0, 'file_exists ' . $pid_file);
-            $pid = file_get_contents($pid_file);
-            if ($this->isProcessRunning($pid)) {
-                if ($job['enabled']) {
-                    ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' running and working fine');
-                    return true;
-                } else {
-                    ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' running, but disabled in config. Send SIGTERM signal.', ConsoleHelper::BG_RED);
-                    if (isset($job['hardKill']) && $job['hardKill']) {
-                        posix_kill($pid, SIGKILL);
-                    } else {
-                        posix_kill($pid, SIGTERM);
-                    }
-
-                    return true;
-                }
-            }
+        if ($this->checkOnProcess($job)) {
+            return true;
         }
+
         ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' not found', ConsoleHelper::BG_RED);
         if ($job['enabled']) {
-            ConsoleHelper::consolePrint(0, 'Try to run daemon ' . $job['name'] . '.', ConsoleHelper::BG_GREY);
-            $command_name = $job['name'] . DIRECTORY_SEPARATOR . 'index';
-            //run daemon
-            $pid = pcntl_fork();
-            ConsoleHelper::consolePrint(0, '$pid: ' . $pid);
-            if ($pid === -1) {
-                ConsoleHelper::consolePrint(self::EXIT_CODE_ERROR, 'pcntl_fork() returned error', ConsoleHelper::BG_RED);
-            } elseif ($pid === 0) {
-//                $this->cleanLog();
-                $pidJob = file_get_contents($this->getPidPath($job['name'], true));
-                $this->runJob($job, $pidJob);
-                ConsoleHelper::consolePrint(0, 'Start action');
-                ConsoleHelper::consolePrint(0, 'Class: ' . $job['class']);
-            } else {
-//                $this->initLogger();
-                try{
-                    if (file_put_contents($this->getPidPath($job['name'], true), $pid)) {
-                        ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' is running with pid ' . $pid);
-                    }else{
-                        posix_kill($pid, SIGKILL);
-                    }
-                }catch (\Exception $exception){
-                    ConsoleHelper::consolePrint(5000, $exception->getMessage(), ConsoleHelper::BG_RED);
-                    posix_kill($pid, SIGKILL);
-                }
 
-            }
+            $this->startDaemonProcess($job);
+
         }
         ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' is checked.');
         return true;
     }
 
-    protected function runJob($job, $pidJob){
-        $object = new $job['class'](array(
+    protected function startDaemonProcess($job)
+    {
+        ConsoleHelper::consolePrint(0, 'Try to run daemon ' . $job['name'] . '.', ConsoleHelper::BG_GREY);
+        //run daemon
+        $pid = pcntl_fork();
+
+        if ($pid === -1) {
+            ConsoleHelper::consolePrint(self::EXIT_CODE_ERROR, 'pcntl_fork() returned error', ConsoleHelper::BG_RED);
+        } elseif ($pid === 0) {
+            $pidJob = file_get_contents($this->getPidPath($job['name'], true));
+            ConsoleHelper::consolePrint(0, "Job {$job['name']} start with PID: " . $pid, ConsoleHelper::BG_GREY);
+            $this->runJob($job, $pidJob);
+        } else {
+            try {
+                if (file_put_contents($this->getPidPath($job['name'], true), $pid)) {
+                    ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' is running with pid ' . $pid);
+                } else {
+                    $this->stopProcessByPID($pid, SIGKILL);
+                }
+            } catch (\Exception $exception) {
+                ConsoleHelper::consolePrint(5000, $exception->getMessage(), ConsoleHelper::BG_RED);
+                $this->stopProcessByPID($pid, SIGKILL);
+            }
+
+        }
+    }
+
+    /**
+     * Check process of job
+     *
+     * @param $job
+     * @return bool
+     */
+    protected function checkOnProcess($job)
+    {
+        $pid_file = $this->getPidPath($job['name'], true);
+
+        ConsoleHelper::consolePrint(0, 'Check daemon ' . $job['name']);
+
+        if (file_exists($pid_file)) {
+
+            ConsoleHelper::consolePrint(0, 'file_exists ' . $pid_file);
+            $pid = file_get_contents($pid_file);
+
+            if ($this->isProcessRunning($pid)) {
+                if ($job['enabled']) {
+
+                    ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' running and working fine');
+
+                    return true;
+                } else {
+
+                    $this->stopDaemonProcess($job, $pid);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Stop process by PID
+     *
+     * @param $job
+     * @param $pid
+     */
+    protected function stopDaemonProcess($job, $pid)
+    {
+        ConsoleHelper::consolePrint(0, 'Daemon ' . $job['name'] . ' running, but disabled in config. Send SIGTERM signal.', ConsoleHelper::BG_RED);
+        if (isset($job['hardKill']) && $job['hardKill']) {
+            $this->stopProcessByPID($pid, SIGKILL);
+        } else {
+            $this->stopProcessByPID($pid, SIGTERM);
+        }
+
+    }
+
+    /**
+     * @param $job
+     * @param $pidJob
+     */
+    protected function runJob($job, $pidJob)
+    {
+        $object = new $job['class']([
             'pidJob' => $pidJob,
             'pidName' => $job['name']
-                ));
+        ]);
         $object->run();
     }
 
@@ -154,15 +196,16 @@ class WatcherDaemonController extends DaemonController implements WatcherControl
         return $this->config->workers;
     }
 
+
     /**
-     * Fetch one task from array of tasks
+     * Stop process by system PID
      *
-     * @param Array
-     *
-     * @return mixed one task
+     * @param $pid
+     * @param $signal
      */
-    protected function defineJobExtractor(&$jobs)
+    protected function stopProcessByPID($pid, $signal)
     {
-        return array_shift($jobs);
+        posix_kill($pid, $signal);
+        pcntl_signal_dispatch();
     }
 }
